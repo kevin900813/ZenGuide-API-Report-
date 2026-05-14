@@ -126,6 +126,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
     <meta charset="UTF-8">
     <title>演練成效分析報表</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
         .container { max-width: 1200px; margin: auto; }
@@ -194,6 +195,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
 
 <script>
 let chartInstances = {};
+let currentData = null;
+
+// 註冊外掛程式，用於顯示圖表上的數值標籤
+Chart.register(ChartDataLabels);
 
 async function loadData() {
     const q = new URLSearchParams({
@@ -206,6 +211,7 @@ async function loadData() {
 
     const res = await fetch(`phishing.php?${q}`);
     const data = await res.json();
+    currentData = data;
 
     document.getElementById('totalTxt').innerText = data.total;
 
@@ -215,12 +221,12 @@ async function loadData() {
         `<tr><td>${c.name}</td><td>${c.type}</td><td>${c.subject}</td></tr>`
     ).join('');
 
-    // --- 更新圓餅圖 ---
+    // --- 更新圓餅圖 (參考 image_cbf21e.png) ---
     const pieSet = [
-        { id: 'pieView', count: data.counts.View, label: '已開啟', color: '#4285f4' },
-        { id: 'pieClick', count: data.counts.Click, label: '已點擊', color: '#fabb05' },
-        { id: 'pieAttach', count: data.counts.Attach, label: '已開附件', color: '#34a853' },
-        { id: 'pieInput', count: data.counts.Input, label: '已輸入', color: '#ea4335' }
+        { id: 'pieView', count: data.counts.View, label: '開啟信件', color: '#4285f4' },
+        { id: 'pieClick', count: data.counts.Click, label: '點擊連結', color: '#fabb05' },
+        { id: 'pieAttach', count: data.counts.Attach, label: '開啟附件', color: '#34a853' },
+        { id: 'pieInput', count: data.counts.Input, label: '輸入資料', color: '#ea4335' }
     ];
 
     pieSet.forEach(p => {
@@ -228,18 +234,36 @@ async function loadData() {
         chartInstances[p.id] = new Chart(document.getElementById(p.id), {
             type: 'pie',
             data: {
-                labels: [p.label, '未執行'],
-                datasets: [{ data: [p.count, data.total - p.count], backgroundColor: [p.color, '#eee'] }]
+                labels: [`${p.label}帳號數 ${p.count}`, `未${p.label}帳號數 ${data.total - p.count}`],
+                datasets: [{ 
+                    data: [p.count, data.total - p.count], 
+                    backgroundColor: [p.color, '#66bb6a'] // 參考圖片使用綠色系
+                }]
             },
-            options: { plugins: { legend: { position: 'bottom' } } }
+            options: {
+                plugins: {
+                    legend: { position: 'right' }, // 圖例放在右側
+                    datalabels: {
+                        formatter: (value, ctx) => {
+                            let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            let percentage = (value * 100 / sum).toFixed(2) + "%";
+                            return percentage;
+                        },
+                        color: '#444',
+                        anchor: 'end',
+                        align: 'start',
+                        offset: 10
+                    }
+                }
+            }
         });
     });
 
-    // --- 更新長條圖 ---
+    // --- 更新長條圖 (參考 image_cbf241.png) ---
     const barSet = [
-        { id: 'barClick', label: '部門點閱連結比率 (%)', key: 'click_rate', color: '#fabb05' },
-        { id: 'barAttach', label: '部門開啟附件比率 (%)', key: 'attach_rate', color: '#34a853' },
-        { id: 'barInput', label: '部門釣魚輸入比率 (%)', key: 'input_rate', color: '#ea4335' }
+        { id: 'barClick', label: '下載圖片比率', key: 'click_rate', color: '#4285f4' },
+        { id: 'barAttach', label: '開啟附件比率', key: 'attach_rate', color: '#34a853' },
+        { id: 'barInput', label: '輸入資料比率', key: 'input_rate', color: '#ea4335' }
     ];
 
     barSet.forEach(b => {
@@ -251,10 +275,38 @@ async function loadData() {
                 datasets: [{
                     label: b.label,
                     data: data.dept_stats.map(d => d[b.key]),
-                    backgroundColor: b.color
+                    backgroundColor: data.dept_stats.map((_, i) => `hsl(${i * 45}, 70%, 50%)`), // 每個部門不同顏色
+                    barThickness: 20
                 }]
             },
-            options: { indexAxis: 'y', scales: { x: { max: 100, beginAtZero: true } } }
+            options: {
+                indexAxis: 'y',
+                scales: { 
+                    x: { max: 100, beginAtZero: true, title: { display: true, text: '比率' } },
+                    y: { title: { display: true, text: '部門' } }
+                },
+                plugins: {
+                    datalabels: {
+                        anchor: 'end',
+                        align: 'right',
+                        formatter: (val) => val + (val > 0 ? "" : ""), // 顯示數值
+                        font: { weight: 'bold' }
+                    },
+                    // 模擬紅色基準線
+                    annotation: {
+                        annotations: {
+                            line1: {
+                                type: 'line',
+                                xMin: 5,
+                                xMax: 5,
+                                borderColor: 'red',
+                                borderWidth: 2,
+                                label: { content: '5%', enabled: true, position: 'end' }
+                            }
+                        }
+                    }
+                }
+            }
         });
     });
 }
