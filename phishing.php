@@ -167,8 +167,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
 
     <div class="card">
         <div class="filter-row">
-            <div><label>開始日期</label><input type="date" id="start" value="2026-04-01"></div>
-            <div><label>結束日期</label><input type="date" id="end" value="2026-05-31"></div>
+            <div><label>開始日期</label><input type="date" id="start" value="2026-01-01"></div>
+            <div><label>結束日期</label><input type="date" id="end" value="2026-03-31"></div>
             <div><label>屬性名稱</label><input type="text" id="tagName" value="Department"></div>
             <div><button onclick="loadData()">更新報表</button></div>
         </div>
@@ -177,7 +177,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
     <div class="card" id="tableSection">
         <div class="card-header">
             <h3>活動與範本資訊</h3>
-            <button class="btn-export" onclick="exportTableAsImage('tableSection', '活動資訊')">匯出圖片</button>
+            <button class="btn-export" data-html2canvas-ignore onclick="exportTableAsImage('tableSection', '活動資訊')">匯出圖片</button>
         </div>
         <table id="campaignTable">
             <thead>
@@ -193,19 +193,19 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
         </div>
         <div class="pie-grid">
             <div class="chart-container">
-                <div class="chart-label">信件開啟比率 <button class="btn-export" onclick="exportChart('pieView', '信件開啟比率')">匯出</button></div>
+                <div class="chart-label">信件開啟比率 <button class="btn-export" data-html2canvas-ignore onclick="exportChart('pieView', '信件開啟比率')">匯出</button></div>
                 <canvas id="pieView"></canvas>
             </div>
             <div class="chart-container">
-                <div class="chart-label">點閱連結比率 <button class="btn-export" onclick="exportChart('pieClick', '點閱連結比率')">匯出</button></div>
+                <div class="chart-label">點閱連結比率 <button class="btn-export" data-html2canvas-ignore onclick="exportChart('pieClick', '點閱連結比率')">匯出</button></div>
                 <canvas id="pieClick"></canvas>
             </div>
             <div class="chart-container">
-                <div class="chart-label">開啟附件比率 <button class="btn-export" onclick="exportChart('pieAttach', '開啟附件比率')">匯出</button></div>
+                <div class="chart-label">開啟附件比率 <button class="btn-export" data-html2canvas-ignore onclick="exportChart('pieAttach', '開啟附件比率')">匯出</button></div>
                 <canvas id="pieAttach"></canvas>
             </div>
             <div class="chart-container">
-                <div class="chart-label">釣魚輸入比率 <button class="btn-export" onclick="exportChart('pieInput', '釣魚輸入比率')">匯出</button></div>
+                <div class="chart-label">釣魚輸入比率 <button class="btn-export" data-html2canvas-ignore onclick="exportChart('pieInput', '釣魚輸入比率')">匯出</button></div>
                 <canvas id="pieInput"></canvas>
             </div>
         </div>
@@ -215,15 +215,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
         <div class="card-header"><h3>部門比率分析</h3></div>
         <div class="bar-grid">
             <div class="chart-container">
-                <div class="chart-label">點擊連結比率 <button class="btn-export" onclick="exportChart('barClick', '部門點擊比率')">匯出</button></div>
+                <div class="chart-label">點擊連結比率 <button class="btn-export" data-html2canvas-ignore onclick="exportChart('barClick', '部門點擊比率')">匯出</button></div>
                 <canvas id="barClick"></canvas>
             </div>
             <div class="chart-container">
-                <div class="chart-label">開啟附件比率 <button class="btn-export" onclick="exportChart('barAttach', '部門附件比率')">匯出</button></div>
+                <div class="chart-label">開啟附件比率 <button class="btn-export" data-html2canvas-ignore onclick="exportChart('barAttach', '部門附件比率')">匯出</button></div>
                 <canvas id="barAttach"></canvas>
             </div>
             <div class="chart-container">
-                <div class="chart-label">輸入資料比率 <button class="btn-export" onclick="exportChart('barInput', '部門輸入比率')">匯出</button></div>
+                <div class="chart-label">輸入資料比率 <button class="btn-export" data-html2canvas-ignore onclick="exportChart('barInput', '部門輸入比率')">匯出</button></div>
                 <canvas id="barInput"></canvas>
             </div>
         </div>
@@ -362,19 +362,13 @@ async function loadData() {
 // --- 匯出功能 ---
 function exportChart(canvasId, name) {
     const canvas = document.getElementById(canvasId);
-    // 建立一個臨時 canvas 來設定白色背景，避免匯出透明 PNG
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    const ctx = tempCanvas.getContext('2d');
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-    ctx.drawImage(canvas, 0, 0);
-    
-    const link = document.createElement('a');
-    link.download = `${name}.png`;
-    link.href = tempCanvas.toDataURL('image/png');
-    link.click();
+    const container = canvas.closest('.chart-container');
+    html2canvas(container, { backgroundColor: "#ffffff", scale: 2 }).then(canvasResult => {
+        const link = document.createElement('a');
+        link.download = `${name}.png`;
+        link.href = canvasResult.toDataURL('image/png');
+        link.click();
+    });
 }
 
 function exportTableAsImage(elementId, name) {
