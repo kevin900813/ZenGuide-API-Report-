@@ -12,7 +12,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
 
     $start    = $_GET['start'] ?? '';
     $end      = $_GET['end'] ?? '';
-    $tagName  = $_GET['tagName'] ?? 'adGroup'; // 預設使用 adGroup
+    $tagName  = $_GET['tagName'] ?? 'Department'; // 預設使用 Department
     $tagValue = $_GET['tagValue'] ?? '';
 
     $apiUrl = "https://results.us.securityeducation.com/api/reporting/v0.3.0/phishing";
@@ -57,12 +57,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
             ];
         }
 
-        // 2. 解析部門 (adGroup)
-        $dept = "未分類";
+        $dept = "未分類"; // 預設值
+
+    // 2. 檢查 usertags 中是否存在該標籤
         if (isset($attr['usertags'][$tagName])) {
             $tagVal = $attr['usertags'][$tagName];
-            $dept = is_array($tagVal) ? ($tagVal[0] ?? "空值") : $tagVal;
-        }
+    
+    // 3. 判斷資料型態：處理如 ["PM"] 的陣列結構
+        if (is_array($tagVal)) {
+        // 抓取陣列第一個值，並確保不是空字串
+            $dept = (!empty($tagVal[0])) ? $tagVal[0] : "未定義部門";
+    }   else {
+        // 如果 API 回傳的是單一字串
+            $dept = (!empty($tagVal)) ? $tagVal : "未定義部門";
+    }
+}
 
         // 3. 帳號狀態追蹤 (每個 Email 在該活動中的最高風險行為)
         if (!isset($users_status[$email])) {
@@ -157,7 +166,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
         <div class="filter-row">
             <div><label>開始日期</label><input type="date" id="start" value="2026-04-01"></div>
             <div><label>結束日期</label><input type="date" id="end" value="2026-05-31"></div>
-            <div><label>屬性名稱</label><input type="text" id="tagName" value="adGroup"></div>
+            <div><label>屬性名稱</label><input type="text" id="tagName" value="Department"></div>
             <div><label>屬性值</label><input type="text" id="tagValue" placeholder="全部"></div>
             <div><button onclick="loadData()">更新報表</button></div>
         </div>
