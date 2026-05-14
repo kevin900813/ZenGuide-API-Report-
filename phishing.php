@@ -152,7 +152,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
         th { background: #f8f9fa; }
 
         /* 圖表佈局 */
-        .pie-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; text-align: center; margin: 20px 0; }
+        .pie-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; text-align: center; margin: 20px 0; }
         .bar-grid { display: grid; grid-template-columns: repeat(1, 1fr); gap: 30px; margin-top: 20px; }
         .chart-label { margin-top: 10px; font-weight: bold; font-size: 0.9em; }
     </style>
@@ -251,10 +251,17 @@ async function loadData() {
             },
             options: {
                 plugins: {
-                    legend: { position: 'right' }, // 圖例放在右側
+                    legend: { 
+                        position: 'bottom', // 改為下方，釋放寬度
+                        labels: { 
+                            boxWidth: 12, 
+                            font: { size: 11 } 
+                        }
+                    },
                     datalabels: {
                         formatter: (value, ctx) => {
-                            let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            if (value === 0) return ''; // 數值為 0 時不顯示，避免重疊
+                            let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
                             let percentage = (value * 100 / sum).toFixed(2) + "%";
                             return percentage;
                         },
@@ -262,6 +269,11 @@ async function loadData() {
                         anchor: 'end',
                         align: 'start',
                         offset: 10
+                    }
+                },
+                layout: {
+                    padding: {
+                        top: 10, bottom: 10, left: 20, right: 20 // 增加內距防止文字裁切
                     }
                 }
             }
