@@ -152,7 +152,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
         th { background: #f8f9fa; }
 
         /* 圖表佈局 */
-        .pie-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; text-align: center; margin: 20px 0; }
+        /* 調整圓餅圖容器的網格佈局 */
+        .pie-grid {
+            display: grid;
+        /* 增加列間距 (gap)，確保文字不會碰到旁邊的圖餅 */
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 30px; 
+            text-align: center;
+            margin: 20px 0;
+            width: 100%;
+        }
+        /* 確保每個 canvas 有足夠的高度空間 */
+        .pie-grid > div {
+            min-width: 0; /* 防止 grid 內容溢出 */
+            padding: 10px;
+        }
         .bar-grid { display: grid; grid-template-columns: repeat(1, 1fr); gap: 30px; margin-top: 20px; }
         .chart-label { margin-top: 10px; font-weight: bold; font-size: 0.9em; }
     </style>
@@ -239,34 +253,47 @@ async function loadData() {
     ];
 
     pieSet.forEach(p => {
-        if (chartInstances[p.id]) chartInstances[p.id].destroy();
-        chartInstances[p.id] = new Chart(document.getElementById(p.id), {
-            type: 'pie',
-            data: {
-                labels: [`${p.label}帳號數 ${p.count}`, `未${p.label}帳號數 ${data.total - p.count}`],
-                datasets: [{ 
-                    data: [p.count, data.total - p.count], 
-                    backgroundColor: [p.color, '#66bb6a'] // 參考圖片使用綠色系
-                }]
+    if (chartInstances[p.id]) chartInstances[p.id].destroy();
+    chartInstances[p.id] = new Chart(document.getElementById(p.id), {
+        type: 'pie',
+        data: {
+            labels: [`${p.label}數 ${p.count}`, `未${p.label}數 ${data.total - p.count}`],
+            datasets: [{ 
+                data: [p.count, data.total - p.count], 
+                backgroundColor: [p.color, '#66bb6a'] 
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false, // 允許根據容器高度調整
+            layout: {
+                padding: {
+                    right: 20 // 增加右側內距，給圖例更多呼吸空間
+                }
             },
-            options: {
-                plugins: {
-                    legend: { position: 'right' }, // 圖例放在右側
-                    datalabels: {
-                        formatter: (value, ctx) => {
-                            let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                            let percentage = (value * 100 / sum).toFixed(2) + "%";
-                            return percentage;
+            plugins: {
+                legend: { 
+                    position: 'right',
+                    labels: {
+                        boxWidth: 12, // 縮小左側顏色方塊
+                        font: {
+                            size: 11 // 微調文字大小，避免太擠
                         },
-                        color: '#444',
-                        anchor: 'end',
-                        align: 'start',
-                        offset: 10
+                        padding: 10 // 增加標籤之間的垂直距離
+                    }
+                },
+                datalabels: {
+                    color: '#444',
+                    font: { weight: 'bold', size: 10 },
+                    formatter: (value, ctx) => {
+                        let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        return (value * 100 / sum).toFixed(2) + "%";
                     }
                 }
             }
-        });
+        }
     });
+});
 
     // --- 更新長條圖 (參考 image_cbf241.png) ---
     const barSet = [
