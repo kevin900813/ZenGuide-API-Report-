@@ -13,15 +13,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
     $start    = $_GET['start'] ?? '';
     $end      = $_GET['end'] ?? '';
     $tagName  = $_GET['tagName'] ?? 'Department'; // 預設使用 Department
-    $tagValue = $_GET['tagValue'] ?? '';
 
     $apiUrl = "https://results.us.securityeducation.com/api/reporting/v0.3.0/phishing";
     $params = ['page[size]' => '5000']; 
     if ($start) $params["filter[_campaignstartdate_start]"] = "'$start'";
     if ($end)   $params["filter[_campaignstartdate_end]"]   = "'$end'";
-    if ($tagName && $tagValue) {
-        $params["filter[user_tag][$tagName]"] = "'$tagValue'";
-    }
 
     $fullUrl = $apiUrl . "?" . http_build_query($params) . "&user_tag_enable";
     $apiKey = "6VPasCLKwgHttewO/JgX9wfFI9WdfvDFQpBmteS6E5RVccwZ3";
@@ -136,6 +132,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
     <title>演練成效分析報表</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
         .container { max-width: 1200px; margin: auto; }
@@ -152,9 +149,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
         th { background: #f8f9fa; }
 
         /* 圖表佈局 */
-        .pie-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; text-align: center; margin: 20px 0; }
+        .pie-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; text-align: center; margin: 20px 0; }
         .bar-grid { display: grid; grid-template-columns: repeat(1, 1fr); gap: 30px; margin-top: 20px; }
-        .chart-label { margin-top: 10px; font-weight: bold; font-size: 0.9em; }
+        .chart-container { position: relative; background: #fff; padding: 10px; border-radius: 8px; }
+        .chart-label { margin-top: 10px; font-weight: bold; font-size: 0.9em; margin-bottom: 10px; }
+        
+        /* 標題與按鈕 */
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .card-header h3 { margin: 0; }
+        .btn-export { width: auto; padding: 5px 15px; font-size: 0.8em; background: #28a745; margin-left: 10px; }
     </style>
 </head>
 <body>
@@ -167,13 +170,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
             <div><label>開始日期</label><input type="date" id="start" value="2026-04-01"></div>
             <div><label>結束日期</label><input type="date" id="end" value="2026-05-31"></div>
             <div><label>屬性名稱</label><input type="text" id="tagName" value="Department"></div>
-            <div><label>屬性值</label><input type="text" id="tagValue" placeholder="全部"></div>
             <div><button onclick="loadData()">更新報表</button></div>
         </div>
     </div>
 
-    <div class="card">
-        <h3>活動與範本資訊</h3>
+    <div class="card" id="tableSection">
+        <div class="card-header">
+            <h3>活動與範本資訊</h3>
+            <button class="btn-export" onclick="exportTableAsImage('tableSection', '活動資訊')">匯出圖片</button>
+        </div>
         <table id="campaignTable">
             <thead>
                 <tr><th>活動名稱</th><th>範本類別</th><th>範本主題</th></tr>
@@ -183,21 +188,44 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
     </div>
 
     <div class="card">
-        <h3>各項指標帳號數比率 (總帳號數: <span id="totalTxt">0</span>)</h3>
+        <div class="card-header">
+            <h3>各項指標帳號數比率 (總帳號數: <span id="totalTxt">0</span>)</h3>
+        </div>
         <div class="pie-grid">
-            <div><canvas id="pieView"></canvas><div class="chart-label">信件開啟比率</div></div>
-            <div><canvas id="pieClick"></canvas><div class="chart-label">點閱連結比率</div></div>
-            <div><canvas id="pieAttach"></canvas><div class="chart-label">開啟附件比率</div></div>
-            <div><canvas id="pieInput"></canvas><div class="chart-label">釣魚輸入比率</div></div>
+            <div class="chart-container">
+                <div class="chart-label">信件開啟比率 <button class="btn-export" onclick="exportChart('pieView', '信件開啟比率')">匯出</button></div>
+                <canvas id="pieView"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-label">點閱連結比率 <button class="btn-export" onclick="exportChart('pieClick', '點閱連結比率')">匯出</button></div>
+                <canvas id="pieClick"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-label">開啟附件比率 <button class="btn-export" onclick="exportChart('pieAttach', '開啟附件比率')">匯出</button></div>
+                <canvas id="pieAttach"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-label">釣魚輸入比率 <button class="btn-export" onclick="exportChart('pieInput', '釣魚輸入比率')">匯出</button></div>
+                <canvas id="pieInput"></canvas>
+            </div>
         </div>
     </div>
 
     <div class="card">
-        <h3>部門比率分析</h3>
+        <div class="card-header"><h3>部門比率分析</h3></div>
         <div class="bar-grid">
-            <div><canvas id="barClick"></canvas></div>
-            <div><canvas id="barAttach"></canvas></div>
-            <div><canvas id="barInput"></canvas></div>
+            <div class="chart-container">
+                <div class="chart-label">點擊連結比率 <button class="btn-export" onclick="exportChart('barClick', '部門點擊比率')">匯出</button></div>
+                <canvas id="barClick"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-label">開啟附件比率 <button class="btn-export" onclick="exportChart('barAttach', '部門附件比率')">匯出</button></div>
+                <canvas id="barAttach"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-label">輸入資料比率 <button class="btn-export" onclick="exportChart('barInput', '部門輸入比率')">匯出</button></div>
+                <canvas id="barInput"></canvas>
+            </div>
         </div>
     </div>
 </div>
@@ -214,8 +242,7 @@ async function loadData() {
         action: 'get_data',
         start: document.getElementById('start').value,
         end: document.getElementById('end').value,
-        tagName: document.getElementById('tagName').value,
-        tagValue: document.getElementById('tagValue').value
+        tagName: document.getElementById('tagName').value
     });
 
     const res = await fetch(`phishing.php?${q}`);
@@ -282,7 +309,7 @@ async function loadData() {
 
     // --- 更新長條圖 (參考 image_cbf241.png) ---
     const barSet = [
-        { id: 'barClick', label: '下載圖片比率', key: 'click_rate', color: '#4285f4' },
+        { id: 'barClick', label: '點擊連結比率', key: 'click_rate', color: '#4285f4' },
         { id: 'barAttach', label: '開啟附件比率', key: 'attach_rate', color: '#34a853' },
         { id: 'barInput', label: '輸入資料比率', key: 'input_rate', color: '#ea4335' }
     ];
@@ -329,6 +356,34 @@ async function loadData() {
                 }
             }
         });
+    });
+}
+
+// --- 匯出功能 ---
+function exportChart(canvasId, name) {
+    const canvas = document.getElementById(canvasId);
+    // 建立一個臨時 canvas 來設定白色背景，避免匯出透明 PNG
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const ctx = tempCanvas.getContext('2d');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    ctx.drawImage(canvas, 0, 0);
+    
+    const link = document.createElement('a');
+    link.download = `${name}.png`;
+    link.href = tempCanvas.toDataURL('image/png');
+    link.click();
+}
+
+function exportTableAsImage(elementId, name) {
+    const element = document.getElementById(elementId);
+    html2canvas(element, { backgroundColor: "#ffffff", scale: 2 }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `${name}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
     });
 }
 
