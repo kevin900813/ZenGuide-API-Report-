@@ -42,51 +42,51 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
     $users_status = []; // 用於去重統計帳號
     $dept_data = [];
 
+    //取得前端傳來的屬性名稱
+    $targetTag = $_GET['tagName'] ?? ''; 
+
     foreach ($events as $item) {
-        $attr = $item['attributes'];
-        $email = $attr['useremailaddress'];
-        $type = $attr['eventtype'];
-        
-        // 1. 活動表格資料 (以活動名稱為 Key 去重)
-        $cName = $attr['campaignname'] ?? 'N/A';
-        if (!isset($campaigns[$cName])) {
-            $campaigns[$cName] = [
-                "name" => $cName,
-                "type" => $attr['campaigntype'] ?? 'N/A',
-                "subject" => $attr['templatesubject'] ?? 'N/A'
-            ];
-        }
-
-        $dept = "未分類"; // 預設值
-
-    // 2. 檢查 usertags 中是否存在該標籤
-        if (isset($attr['usertags'][$tagName])) {
-            $tagVal = $attr['usertags'][$tagName];
+    $attr = $item['attributes'];
+    $email = $attr['useremailaddress'];
+    $type = $attr['eventtype'];
     
-    // 3. 判斷資料型態：處理如 ["PM"] 的陣列結構
-        if (is_array($tagVal)) {
-        // 抓取陣列第一個值，並確保不是空字串
-            $dept = (!empty($tagVal[0])) ? $tagVal[0] : "未定義部門";
-    }   else {
-        // 如果 API 回傳的是單一字串
-            $dept = (!empty($tagVal)) ? $tagVal : "未定義部門";
+    // --- 2. 嚴格解析指定的屬性值 ---
+    $currentTagValue = null; 
+    if ($targetTag && isset($attr['usertags'][$targetTag])) {
+        $tagData = $attr['usertags'][$targetTag];
+        // 處理陣列格式，例如 ["PM"]
+        $currentTagValue = is_array($tagData) ? ($tagData[0] ?? null) : $tagData;
+    }
+
+    // 如果沒有對應的屬性值，就跳過這筆資料的部門統計（不顯示未分類）
+    if ($currentTagValue === null || $currentTagValue === '') {
+        continue; 
+    }
+
+    // --- 3. 帳號狀態追蹤 (僅針對有屬性值的帳號) ---
+    if (!isset($users_status[$email])) {
+        $users_status[$email] = [
+            "View" => 0, "Click" => 0, "Attach" => 0, "Input" => 0, 
+            "dept" => $currentTagValue // 這裡存放的就是 Department 的值
+        ];
+    }
+    
+    // 更新行為狀態
+    if ($type === "Email View")      $users_status[$email]["View"] = 1;
+    if ($type === "Email Click")     $users_status[$email]["Click"] = 1;
+    if ($type === "Attachment Open") $users_status[$email]["Attach"] = 1;
+    if ($type === "Data Submission") $users_status[$email]["Input"] = 1;
+
+    // 建立活動表格資料 (此部分維持原樣)
+    $cName = $attr['campaignname'] ?? 'N/A';
+    if (!isset($campaigns[$cName])) {
+        $campaigns[$cName] = [
+            "name" => $cName,
+            "type" => $attr['campaigntype'] ?? 'N/A',
+            "subject" => $attr['templatesubject'] ?? 'N/A'
+        ];
     }
 }
-
-        // 3. 帳號狀態追蹤 (每個 Email 在該活動中的最高風險行為)
-        if (!isset($users_status[$email])) {
-            $users_status[$email] = ["View" => 0, "Click" => 0, "Attach" => 0, "Input" => 0, "dept" => $dept];
-        }
-        if ($type === "Email View")      $users_status[$email]["View"] = 1;
-        if ($type === "Email Click")     $users_status[$email]["Click"] = 1;
-        if ($type === "Attachment Open") $users_status[$email]["Attach"] = 1;
-        if ($type === "Data Submission") $users_status[$email]["Input"] = 1;
-
-        // 4. 部門基礎數據累加
-        if (!isset($dept_data[$dept])) {
-            $dept_data[$dept] = ["Total" => 0, "Click" => 0, "Attach" => 0, "Input" => 0];
-        }
-    }
 
     // --- 計算最終統計 ---
     $totalUsers = count($users_status);
