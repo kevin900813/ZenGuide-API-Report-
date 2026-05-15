@@ -1,0 +1,34 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run PHP Server",
+      "type": "shell",
+      "command": "C:\\php\\php.exe",
+      "args": [
+        "-S",
+        "localhost:8080"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "php-server",
+        "pattern": [
+          {
+            "regexp": ".",
+            "file": 1,
+            "location": 2,
+            "message": 3
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "PHP .* Development Server",
+          "endsPattern": "started"
+        }
+      }
+    }
+  ]
+}

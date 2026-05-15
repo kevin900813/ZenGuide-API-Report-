@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "PHP Server + Chrome Debug",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:8080/phishing.php",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "Run PHP Server"
+    }
+  ]
+}
