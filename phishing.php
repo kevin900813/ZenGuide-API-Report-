@@ -7,6 +7,13 @@
 ini_set('memory_limit', '512M');
 set_time_limit(60);
 
+// 載入 .env 環境變數
+if (file_exists(__DIR__ . '/.env')) {
+    foreach (parse_ini_file(__DIR__ . '/.env') ?: [] as $key => $value) {
+        putenv("$key=$value");
+    }
+}
+
 if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
     header('Content-Type: application/json; charset=utf-8');
 
@@ -21,6 +28,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
 
     $fullUrl = $apiUrl . "?" . http_build_query($params) . "&user_tag_enable";
     $apiKey = "6VPasCLKwgHttewO/JgX9wfFI9WdfvDFQpBmteS6E5RVccwZ3";
+    $apiKey = getenv('PHISHING_API_KEY') ?: '';
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $fullUrl);
@@ -37,6 +45,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
     $campaigns = [];
     $users_status = []; // 用於去重統計帳號
     $dept_data = [];
+    $campaign_stats_raw = []; // 用於儲存範本統計原始資料
 
     //取得前端傳來的屬性名稱
     $targetTag = $_GET['tagName'] ?? ''; 
@@ -45,6 +54,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
     $attr = $item['attributes'];
     $email = $attr['useremailaddress'];
     $type = $attr['eventtype'];
+    $cName = $attr['campaignname'] ?? 'N/A';
+    $tSubject = $attr['templatesubject'] ?? 'N/A';
     
     // --- 2. 嚴格解析指定的屬性值 ---
     $currentTagValue = null; 
@@ -79,9 +90,24 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
         $campaigns[$cName] = [
             "name" => $cName,
             "type" => $attr['campaigntype'] ?? 'N/A',
-            "subject" => $attr['templatesubject'] ?? 'N/A'
+            "subject" => $tSubject
         ];
     }
+
+    // --- 4. 範本統計累加 ---
+    if (!isset($campaign_stats_raw[$cName])) {
+        $campaign_stats_raw[$cName] = [
+            "name" => $cName,
+            "subject" => $tSubject,
+            "users" => []
+        ];
+    }
+    if (!isset($campaign_stats_raw[$cName]["users"][$email])) {
+        $campaign_stats_raw[$cName]["users"][$email] = ["Click" => 0, "Attach" => 0, "Input" => 0];
+    }
+    if ($type === "Email Click")     $campaign_stats_raw[$cName]["users"][$email]["Click"] = 1;
+    if ($type === "Attachment Open") $campaign_stats_raw[$cName]["users"][$email]["Attach"] = 1;
+    if ($type === "Data Submission") $campaign_stats_raw[$cName]["users"][$email]["Input"] = 1;
 }
 
     // --- 計算最終統計 ---
@@ -119,6 +145,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
         "table" => array_values($campaigns),
         "total" => $totalUsers,
         "counts" => $counts,
+        "template_stats" => $template_stats,
         "dept_stats" => $formatted_depts
     ]);
     exit;
@@ -182,6 +209,26 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
         <table id="campaignTable">
             <thead>
                 <tr><th>活動名稱</th><th>範本類別</th><th>範本主題</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="card" id="templateSection">
+        <div class="card-header">
+            <h3>演練結果依範本統計</h3>
+            <button class="btn-export" data-html2canvas-ignore onclick="exportTableAsImage('templateSection', '範本統計結果')">匯出圖片</button>
+        </div>
+        <table id="templateStatsTable">
+            <thead>
+                <tr>
+                    <th>活動名稱</th>
+                    <th>範本主題</th>
+                    <th>帳號數量</th>
+                    <th>點閱連結</th>
+                    <th>開啟附件</th>
+                    <th>釣魚輸入</th>
+                </tr>
             </thead>
             <tbody></tbody>
         </table>
@@ -256,6 +303,19 @@ async function loadData() {
     tbody.innerHTML = data.table.map(c => 
         `<tr><td>${c.name}</td><td>${c.type}</td><td>${c.subject}</td></tr>`
     ).join('');
+
+    // --- 更新範本統計表格 ---
+    const tStatsBody = document.querySelector('#templateStatsTable tbody');
+    tStatsBody.innerHTML = data.template_stats.map(s => `
+        <tr>
+            <td>${s.name}</td>
+            <td>${s.subject}</td>
+            <td>${s.total}</td>
+            <td>${s.click_cnt} (${s.click_rate}%)</td>
+            <td>${s.attach_cnt} (${s.attach_rate}%)</td>
+            <td>${s.input_cnt} (${s.input_rate}%)</td>
+        </tr>
+    `).join('');
 
     // --- 更新圓餅圖 (參考 image_cbf21e.png) ---
     const pieSet = [
