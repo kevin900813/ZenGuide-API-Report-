@@ -122,6 +122,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
 
         // 部門統計
         $d = $u["dept"];
+        if (!isset($dept_data[$d])) {
+            $dept_data[$d] = ["Total" => 0, "Click" => 0, "Attach" => 0, "Input" => 0];
+        }
         $dept_data[$d]["Total"]++;
         if ($u["Click"])  $dept_data[$d]["Click"]++;
         if ($u["Attach"]) $dept_data[$d]["Attach"]++;
@@ -138,6 +141,26 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
             "click_rate" => round(($v["Click"] / $total) * 100, 1),
             "attach_rate" => round(($v["Attach"] / $total) * 100, 1),
             "input_rate" => round(($v["Input"] / $total) * 100, 1)
+        ];
+    }
+
+    // 格式化範本統計數據 (將原始資料加總並計算比率)
+    $template_stats = [];
+    foreach ($campaign_stats_raw as $c) {
+        $total = count($c["users"]);
+        $clicks = 0; $attach = 0; $input = 0;
+        foreach ($c["users"] as $u) {
+            if ($u["Click"]) $clicks++;
+            if ($u["Attach"]) $attach++;
+            if ($u["Input"]) $input++;
+        }
+        $template_stats[] = [
+            "name" => $c["name"],
+            "subject" => $c["subject"],
+            "total" => $total,
+            "click_cnt" => $clicks, "click_rate" => $total > 0 ? round(($clicks / $total) * 100, 1) : 0,
+            "attach_cnt" => $attach, "attach_rate" => $total > 0 ? round(($attach / $total) * 100, 1) : 0,
+            "input_cnt" => $input, "input_rate" => $total > 0 ? round(($input / $total) * 100, 1) : 0
         ];
     }
 
