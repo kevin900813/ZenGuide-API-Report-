@@ -27,8 +27,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
     if ($end)   $params["filter[_campaignstartdate_end]"]   = "'$end'";
 
     $fullUrl = $apiUrl . "?" . http_build_query($params) . "&user_tag_enable";
-    $apiKey = "6VPasCLKwgHttewO/JgX9wfFI9WdfvDFQpBmteS6E5RVccwZ3";
-    $apiKey = getenv('PHISHING_API_KEY') ?: '';
+    // 優先讀取環境變數，若無則使用硬編碼金鑰作為備援
+    $apiKey = getenv('PHISHING_API_KEY') ?: "6VPasCLKwgHttewO/JgX9wfFI9WdfvDFQpBmteS6E5RVccwZ3";
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $fullUrl);
@@ -65,9 +65,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
         $currentTagValue = is_array($tagData) ? ($tagData[0] ?? null) : $tagData;
     }
 
-    // 如果沒有對應的屬性值，就跳過這筆資料的部門統計（不顯示未分類）
+    // 如果沒有對應的屬性值，給予預設值「未分類」而非直接跳過，確保資料能載入
     if ($currentTagValue === null || $currentTagValue === '') {
-        continue; 
+        $currentTagValue = '未分類';
     }
 
     // --- 3. 帳號狀態追蹤 (僅針對有屬性值的帳號) ---
@@ -182,6 +182,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_data') {
     <title>演練成效分析報表</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <!-- 補上長條圖基準線需要的外掛程式 -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
@@ -306,6 +308,7 @@ let currentData = null;
 
 // 註冊外掛程式，用於顯示圖表上的數值標籤
 Chart.register(ChartDataLabels);
+Chart.register(window['chartjs-plugin-annotation']);
 
 async function loadData() {
     const q = new URLSearchParams({
@@ -315,8 +318,15 @@ async function loadData() {
         tagName: document.getElementById('tagName').value
     });
 
-    const res = await fetch(`phishing.php?${q}`);
-    const data = await res.json();
+    let data;
+    try {
+        const res = await fetch(`phishing.php?${q}`);
+        data = await res.json();
+    } catch (e) {
+        console.error("資料載入失敗:", e);
+        alert("無法讀取資料，請檢查網路連線或 API 金鑰設定。");
+        return;
+    }
     currentData = data;
 
     document.getElementById('totalTxt').innerText = data.total;
